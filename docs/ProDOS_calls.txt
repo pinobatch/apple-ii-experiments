@@ -1,0 +1,147 @@
+ProDOS file system calls
+
+CREATE ($C0)
+Makes a new file or folder
+args: $07, path as Pascal string (2 byte pointer), access (usually $E3), type ($04 text, $06 bin, $0F folder, $FF sys), subtype (2 bytes), storage type ($0D folder, $01 other), year-month-day (7:4:5 bits), hour-minute (8:8 bits)
+
+DESTROY ($C1)
+args: $01, path as Pascal string (2 byte pointer)
+
+RENAME ($C2)
+Changes the name of a file or folder. Caveat: Unlike UNIX, ProDOS does not yet implement renaming into a different folder.
+args: $02, path as Pascal string (2 byte pointer), new path as Pascal string (2 byte pointer)
+
+SET_FILE_INFO ($C3)
+args: $07, path as Pascal string (2 byte pointer), access, type, subtype (2 bytes), unused (3 bytes), year-month-day (7:4:5 bits), hour-minute (8:8 bits)
+
+GET_FILE_INFO ($C4)
+args: $0A, path as Pascal string (2 byte pointer), access, type, subtype (2 bytes), storage type, physical size in 512-byte units (2 bytes), mtime year-month-day (7:4:5 bits), mtime hour-minute (8:8 bits), birthtime year-month-day (7:4:5 bits), birthtime hour-minute (8:8 bits)
+
+ON_LINE ($C5)
+Lists volume in one drive or all drives.
+args: $02, drive-slot-0 (1:3:4 bits) or 0 for all drives, pointer to 16 or 256 byte buffer (2 bytes)
+Result is 16-byte records: drive-slot-namelen (1:3:4 bits) followed by 15 bytes. For listing all, valid entries start at offsets $10, $20, ..., $70, $90, $A0, ..., $F0
+
+SET_PREFIX ($C6)
+Changes the current working directory, as an absolute or relative path. N.B.: Relative paths containing .. do not work prior to ProDOS 2.5.
+args: $01, path as Pascal string (2 byte pointer)
+
+GET_PREFIX ($C7)
+Returns the current working directory.
+args: $01, 64-byte buffer to hold CWD as Pascal string (2-byte pointer)
+
+OPEN ($C8)
+Associates a buffer to an existing file.
+args: $03, path as Pascal string (2 byte pointer), 1024-byte I/O buffer (2-byte pointer; must be 256 byte aligned), file handle (output)
+The I/O buffer contains a copy of the sector under the file position and a copy of the index block under the file position.
+
+NEWLINE ($C9)
+Enables record splitting mode. If mask is nonzero, each READ call terminates after reading a byte B where (B & mask) == byte_value. If mask is zero, record splitting is off. A common use is splitting a text file into lines: $FF/$0A for UNIX or CP/M text files, $FF/$0D for ProDOS or classic Mac OS text files, or $7F/$0D for DOS 3.3 or ProDOS text files.
+args: $03, handle, mask, byte_value
+
+READ ($CA)
+Copies bytes from file to RAM starting at file position; advances file position
+args: $04, handle, buffer start (2-byte pointer), buffer size (2 bytes), actual read size (2 bytes out)
+
+WRITE ($CB)
+Copies bytes from RAM to file starting at file position; advances file position
+args: $04, handle, data start (2-byte pointer), data size (2 bytes), actual written size (2 bytes out)
+
+CLOSE ($CC)
+Performs FLUSH and then deallocates a file's handle and buffer
+args: $01, handle
+
+FLUSH ($CD)
+Commits most recently written bytes to a file and updates its directory entry
+args: $01, handle
+
+SET_MARK ($CE)
+Sets the file position. Must not be greater than length; use SET_EOF to make a sparse file first.
+args: $02, handle, position (3 bytes)
+
+GET_MARK ($CF)
+Gets the file position
+args: $02, handle, position (3 bytes out)
+
+SET_EOF ($D0)
+Sets a file's length in bytes, then moves file position to EOF if after EOF.
+args: $02, handle, length (3 bytes)
+
+GET_EOF ($D1)
+Gets a file's length in bytes.
+args: $02, handle, length (3 bytes out)
+
+SET_BUF ($D2)
+Moves a file's 1024-byte I/O buffer.
+args: $02, handle, buffer (2-byte pointer, 256-byte aligned)
+
+GET_BUF ($D3)
+Gets the address of a file's 1024-byte I/O buffer.
+args: $02, handle, buffer (2-byte pointer out)
+
+Other useful calls
+
+READ_BLOCK ($80)
+Reads a 512-byte sector from a block device.
+$03, drive-slot-0 (1:3:4 bits), 512-byte output buffer (2-byte pointer), sector address (2 bytes, e.g. 0 to 279 for a 140 KiB disk)
+
+WRITE_BLOCK ($80)
+Writes a 512-byte sector to a block device.
+$03, drive-slot-0 (1:3:4 bits), 512-byte data buffer (2-byte pointer), sector address (2 bytes)
+
+GET_TIME ($82)
+Copies the time from the real-time clock if installed to $BF90-$BF93)
+
+EXIT ($65)
+Returns to the system program chooser.
+args: $04, $00, $00, $00, $00, $00, $00
+
+ProDOS errors
+
+System calls are executed as follows:
+jsr $BF00
+.byte syscall_id
+.word ptr_to_args
+
+If carry is clear, there was no error.  If carry is set, A contains an error code:
+
+$01: unknown syscall_id
+$04: first byte of args doesn't match argument count
+$25: too many IRQ handlers
+$27: block device I/O error
+$28: no drive in this slot
+$2B: read-only file system (usually physical write-protect switch)
+$2E: disk was forcibly removed from drive
+$40: path contains characters other than [0-9A-Z./] or a component doesn't start with a letter
+$42: more than 8 handles open
+$43: handle is not currently open
+$44: folder not found
+$45: disk not found
+$46: file not found
+$47: file exists
+$48: disk full
+$49: root directory full
+$4A: "incompatible file format" (partially supported storage_type)
+$4B: unsupported storage_type
+$4C: read at EOF
+$4D: attempt to seek past EOF
+$4E: write access denied by file permissions
+$50: file already open
+$51: directory has wrong count
+$52: unsupported file system (not ProDOS)
+$53: argument out of range
+$55: volume control block table full (occurs with ON_LINE when 8 files on 8 volumes are open)
+$56: I/O buffer overlaps memory in use, or reading reserved RAM
+$57: two inserted volumes have same name
+$5A: volume bitmap contains allocated blocks beyond end of volume
+
+
+ProDOS uses $0040-$004E and restores what it clobbers.
+Block device drivers may clobber $003A-$003F.
+The clock driver routinely clobbers $0200-$0210 when reading the real-time clock.
+
+ProDOS BASIC intercepts standard input and output. Instead, use $BE30-$BE31 for stdout and $BE32-$BE33 for stdin.
+
+File type $08 is HGR
+Subtypes $0000 (HGR 280x160 black and white), $0001 (HGR color), $0002 (DHGR black and white), $0003 (DHGR color), $0004-$0007 (full 192 lines)
+For DHGR, the auxiliary 8192 bytes (even columns) are stored before the main 8192 bytes (odd columns).
