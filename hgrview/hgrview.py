@@ -48,6 +48,14 @@ def parse_argv(argv):
     p.add_argument('--version', action='version', version=versionText)
     p.add_argument("-m", "--monochrome", action="store_true",
                    help="decode without color burst")
+    p.add_argument("--par", dest='par_correction', default=None,
+                   action="store_const", const=True,
+                   help="resize to square pixel aspect ratio "
+                        "(default for no outimage)")
+    p.add_argument("--no-par", dest='par_correction',
+                   action="store_const", const=False,
+                   help="write nonsquare DPI instead of resizing "
+                        "(default for outimage)")
     return p.parse_args(argv[1:])
 
 def decode_hgr_line(row):
@@ -85,6 +93,8 @@ def hbascalc(y):
 
 def main(argv=None):
     args = parse_argv(argv or sys.argv)
+    par_correction = args.par_correction
+    if par_correction is None: par_correction = not args.outimage
     with open(args.hgrfile, "rb") as infp:
         screen = infp.read(8192)
     offsets = (hbascalc(y) for y in range(192))
@@ -102,14 +112,23 @@ def main(argv=None):
     im = Image.new("P", (560, 192))
     im.putpalette(palette)
     im.putdata(b"".join(pixels))
+
+    if par_correction:
+        im = im.resize((560, 384), Image.NEAREST)
+        im = im.convert("RGB").resize((480, 384), Image.HAMMING)
     if args.outimage:
-        im.save(args.outimage, bits=4, dpi=(168,72))
+        saveopts = {} if par_correction else {'bits': 4, 'dpi': (168, 72)}
+        im.save(args.outimage, **saveopts)
     else:
         im.show()
 
 def test():
     main("./hgrview.py -m ../b2d/GUS70C.BIN Gus70hm.png".split())
     main("./hgrview.py ../b2d/GUS70C.BIN Gus70h.png".split())
+    main("./hgrview.py --par ../b2d/GUS70C.BIN Gus70hp.png".split())
+    main("./hgrview.py ../b2d/GUS70C.BIN".split())
+    main("./hgrview.py --par ../b2d/GUS70C.BIN".split())
+    main("./hgrview.py --no-par ../b2d/GUS70C.BIN".split())
 
 if __name__=="__main__":
     if "idlelib" in sys.modules:
