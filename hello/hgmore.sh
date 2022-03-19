@@ -15,7 +15,6 @@ $AC -g $PRODOSDISK PRODOS | $AC -p run.po PRODOS sys 0x2000
 # copy these for a program that runs within BASIC
 $AC -g $PRODOSDISK BASIC.SYSTEM | $AC -p run.po BASIC.SYSTEM sys 0x2000
 $AC -p run.po STARTUP bin 0x2000 < $PROGNAME.bin
-$AC -p run.po GUS.HGR bin 0x2000 < ../b2d/GUS70C.BIN
 # or these for a system program
 #$AC -p run.po RUN.SYSTEM sys 0x2000 < $PROGNAME.bin
 

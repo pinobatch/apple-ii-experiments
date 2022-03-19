@@ -1,13 +1,14 @@
 .include "hardware.inc"
 .import __CODE_LOAD__, __CODE_RUN__, __CODE_SIZE__
 CODE_LOAD_LAST = __CODE_LOAD__ + __CODE_SIZE__ - 1
-FILE_BUFFER = $1C00
+.import __RODATA_LOAD__, __RODATA_RUN__, __RODATA_SIZE__
+RODATA_LOAD_LAST = __RODATA_LOAD__ + __RODATA_SIZE__ - 1
 
 FIELD_W = 8
 FIELD_H = 8
 SCRN_H = 192
 
-.bss
+.segment "LUTS"
 .align 256
 preshift_left: .res 256*7
 preshift_right: .res 256*7
@@ -17,6 +18,7 @@ field:   .res FIELD_W * FIELD_H
 hbas_lo: .res SCRN_H
 
 TEXT_BASE = $0400
+FILE_BUFFER = $1C00
 HGR_BASE  = $2000
 
 .segment "STARTUP"
@@ -51,6 +53,21 @@ HGR_BASE  = $2000
   lda #<__CODE_RUN__
   sta zA4+0
   lda #>__CODE_RUN__
+  sta zA4+1
+  ldy #0
+  jsr MemMove
+
+  lda #<__RODATA_LOAD__
+  sta zA1+0
+  lda #>__RODATA_LOAD__
+  sta zA1+1
+  lda #<RODATA_LOAD_LAST
+  sta zA2+0
+  lda #>RODATA_LOAD_LAST
+  sta zA2+1
+  lda #<__RODATA_RUN__
+  sta zA4+0
+  lda #>__RODATA_RUN__
   sta zA4+1
   ldy #0
   jsr MemMove
@@ -162,20 +179,41 @@ shiftRdst = zA4
   ldy #<msg2
   jsr puts
 
+
+  lda #0
+  sta zH2
+  sta zV2
   lda #<tiledata
   sta zA1+0
   lda #>tiledata
   sta zA1+1
-  lda #0  ; L
-  sta zA2+0
-  lda #0  ; T
-  sta zA2+1
-  lda #2  ; W
-  sta zA3+0
-  lda #12 ; H
-  sta zA3+1
-  jsr blit_tile
 
+  tilemap_rowloop:
+    lda #0
+    sta zH2
+    tilemap_tileloop:
+      lda zH2
+      asl a
+      sta zA2+0  ; left
+      lda zV2
+      asl a
+      adc zV2
+      asl a
+      asl a
+      sta zA2+1  ; top
+      lda #2  ; W
+      sta zA3+0
+      lda #12 ; H
+      sta zA3+1
+      jsr blit_tile
+      inc zH2
+      lda zH2
+      cmp #5
+      bcc tilemap_tileloop
+    inc zV2
+    lda zV2
+    cmp #4
+    bcc tilemap_rowloop
 
   lda #>msg
   ldy #<msg
@@ -242,6 +280,8 @@ src = zA1
 ; @param zA2+1 destination top
 ; @param zA3+0 width
 ; @param zA3+1 height
+; @return top = top + old height, height = 0, zA1 at end,
+; left/width unchanged
 .proc blit_tile
 src = zA1
 left = zA2+0
@@ -276,6 +316,8 @@ height = zA3+1
   rts
 .endproc
 
+.rodata
+
 msg1: .byte "CLEARING,", $00
 msg2: .byte "LOADING,", $0D, $00
 msg: .byte "APPLE II forever", $0D, $00
@@ -283,6 +325,7 @@ cwd_before: .byte "CWD: ", $00
 ; For some reason, when run in ProDOS BASIC, the PREFIX is set to ""
 ; instead of the volume name.  Work around this for now
 ; until I go full SYSTEM
+.if 0
 tiledata:
   .byte %01000000, %00000001
   .byte %01100000, %00000011
@@ -296,3 +339,6 @@ tiledata:
   .byte %00100000, %00000101
   .byte %00100000, %00000101
   .byte %00000000, %00000001
+.else
+tiledata: .incbin "../pngtohgr/a2tilecv.chr"
+.endif
