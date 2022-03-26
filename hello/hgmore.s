@@ -208,12 +208,34 @@ shiftRdst = zA4
       jsr blit_tile
       inc zH2
       lda zH2
-      cmp #5
+      cmp #16
       bcc tilemap_tileloop
     inc zV2
     lda zV2
     cmp #4
     bcc tilemap_rowloop
+
+  lda #5
+  sta zV2
+  lda #2
+  sta zH2
+  lda #>qbf_line1
+  ldy #<qbf_line1
+  jsr tile_puts
+  lda #6
+  sta zV2
+  lda #2
+  sta zH2
+  lda #>qbf_line2
+  ldy #<qbf_line2
+  jsr tile_puts
+  lda #7
+  sta zV2
+  lda #2
+  sta zH2
+  lda #>qbf_line3
+  ldy #<qbf_line3
+  jsr tile_puts
 
   lda #>msg
   ldy #<msg
@@ -316,11 +338,69 @@ height = zA3+1
   rts
 .endproc
 
+.proc tile_puts
+src = zA4
+  sta src+1
+  sty src
+  chrloop:
+    ldy #0
+    sty zA1+1
+    lda (src),y
+    and #$7F  ; 0-127
+    sec
+    sbc #' '  ; 0-95
+    bcc done
+    inc src
+    bne :+
+      inc src+1
+    :
+    cmp #64  ; lowercase
+    bcc :+
+      sbc #32
+    :
+    ; get tile address
+    sta zA1
+    asl a
+    adc zA1  ; 0-192
+    .repeat 3
+      asl a
+      rol zA1+1
+    .endrepeat
+    adc #<tiledata
+    sta zA1
+    lda zA1+1
+    adc #>tiledata
+    sta zA1+1
+
+    ; Draw it
+    lda zH2
+    inc zH2
+    asl a
+    sta zA2+0  ; left
+    lda zV2
+    asl a
+    adc zV2
+    asl a
+    asl a
+    sta zA2+1  ; top
+    lda #2  ; W
+    sta zA3+0
+    lda #12 ; H
+    sta zA3+1
+    jsr blit_tile
+    jmp chrloop
+  done:
+  rts
+.endproc
+
 .rodata
 
 msg1: .byte "CLEARING,", $00
 msg2: .byte "LOADING,", $0D, $00
 msg: .byte "APPLE II forever", $0D, $00
+qbf_line1: .byte "A quick brown fox",0
+qbf_line2: .byte "jumps over the",0
+qbf_line3: .byte "lazy dog.",0
 cwd_before: .byte "CWD: ", $00
 ; For some reason, when run in ProDOS BASIC, the PREFIX is set to ""
 ; instead of the volume name.  Work around this for now
@@ -340,5 +420,5 @@ tiledata:
   .byte %00100000, %00000101
   .byte %00000000, %00000001
 .else
-tiledata: .incbin "../pngtohgr/a2tilecv.chr"
+tiledata: .incbin "font14x12.chr"
 .endif

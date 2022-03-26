@@ -4,9 +4,9 @@ set -e
 AC="java -jar ../deps/ac.jar"
 PRODOSDISK="../deps/ProDOS_2_4.dsk"
 LINAPPLE="../../emulators/linapple-pie/linapple"
-PICNAME="../b2d/GUS70C.BIN"
 PROGNAME=hgmore
 
+../pngtohgr/a2tilecv.py -W2 -H12 font14x12.png font14x12.chr
 ca65 -o $PROGNAME.o $PROGNAME.s
 ld65 -o $PROGNAME.bin -C $PROGNAME.cfg -m $PROGNAME.map $PROGNAME.o
 $AC -pro140 run.po RUN
@@ -20,7 +20,8 @@ $AC -p run.po STARTUP bin 0x2000 < $PROGNAME.bin
 
 # AppleCommander's boot sector isn't bootable; ProDOS 2.4's is.
 # ProDOS 2.4 also ships as a DOS 3.3-ordered image for some reason.
-# Copy ProDOS 2.4 boot sector
+# (DOS 3.3-ordered images have sectors 1-14 of each 16-sector track
+# in reverse order.)  Copy ProDOS 2.4 boot sector
 dd conv=notrunc bs=256 if=$PRODOSDISK of=run.po count=1 skip=0 seek=0
 dd conv=notrunc bs=256 if=$PRODOSDISK of=run.po count=1 skip=14 seek=1
 $LINAPPLE -1 run.po -r
