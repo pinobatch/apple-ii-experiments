@@ -18,6 +18,18 @@ GREEN = (77, 166, 64)
 BLUE = (77, 141, 191)
 ORANGE = (178, 114, 64)
 
+# the first of each of these pairs works in Pillow 9.1 and later
+# and fails in Pillow 9.0 and earlier; the second works in
+# Pillow 9.x and earlier and fails in Pillow 10 and later
+try:
+    NEAREST = Image.Resampling.NEAREST
+except AttributeError:
+    NEAREST = Image.NEAREST
+try:
+    BOX = Image.Resampling.BOX
+except AttributeError:
+    BOX = Image.BOX
+
 def hbascalc(y):
     """Calculate the base address of each scanline of an HGR screen"""
     return (y & 0x07) * 1024 + (y & 0x38) * 16 + (y >> 6) * 40
@@ -57,7 +69,7 @@ def trypalette(im, colors, errscale=(8, 8)):
     trial = im.quantize(palette=pim, dither=0)
     residue = ImageChops.difference(im, trial.convert("RGB"))
     residue_l = residue.convert("L", matrix=colorweights)
-    residue_s = residue_l.resize(smresidue_size, Image.BOX)
+    residue_s = residue_l.resize(smresidue_size, BOX)
     return trial, residue, residue_s
 
 def main(argv=None):
@@ -90,7 +102,7 @@ def main(argv=None):
         maskdata = bytes(255 if a == subpalid else 0 for a in attrs)
         maskim = Image.new("L", attrsize)
         maskim.putdata(maskdata)
-        maskim = maskim.resize(im.size, Image.NEAREST)
+        maskim = maskim.resize(im.size, NEAREST)
         subpalbase = subpalid * len(palettes[0])
         ptlut = bytes(range(subpalbase, subpalbase + len(palettes[0])))
         ptlut += bytes(256 - len(ptlut))

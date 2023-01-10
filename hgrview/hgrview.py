@@ -38,6 +38,18 @@ colors_1248 = [
 helpText = "Viewer and decoder for Apple II HGR (high-resolution) images"
 versionText = '%(prog)s 0.01'
 
+# the first of each of these pairs works in Pillow 9.1 and later
+# and fails in Pillow 9.0 and earlier; the second works in
+# Pillow 9.x and earlier and fails in Pillow 10 and later
+try:
+    NEAREST = Image.Resampling.NEAREST
+except AttributeError:
+    NEAREST = Image.NEAREST
+try:
+    HAMMING = Image.Resampling.HAMMING
+except AttributeError:
+    HAMMING = Image.HAMMING
+
 def parse_argv(argv):
     p = argparse.ArgumentParser(description=helpText)
     p.add_argument("hgrfile",
@@ -114,8 +126,8 @@ def main(argv=None):
     im.putdata(b"".join(pixels))
 
     if par_correction:
-        im = im.resize((560, 384), Image.NEAREST)
-        im = im.convert("RGB").resize((480, 384), Image.HAMMING)
+        im = im.resize((560, 384), NEAREST)
+        im = im.convert("RGB").resize((480, 384), HAMMING)
     if args.outimage:
         saveopts = {} if par_correction else {'bits': 4, 'dpi': (168, 72)}
         im.save(args.outimage, **saveopts)
