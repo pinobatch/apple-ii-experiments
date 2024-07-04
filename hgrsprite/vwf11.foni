@@ -1,0 +1,6 @@
+image=vwf11.png
+height=12
+maxwidth=14
+bgcolor=#000000
+
+chars=0020-007F

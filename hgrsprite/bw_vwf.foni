@@ -1,0 +1,6 @@
+image=bw_vwf.png
+height=8
+maxwidth=9
+bgcolor=#000000
+
+chars=0020-007F

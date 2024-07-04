@@ -1,0 +1,6 @@
+image=colorvwf.png
+height=8
+maxwidth=8
+bgcolor=#000000
+
+chars=0020-005F
